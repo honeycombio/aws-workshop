@@ -1,0 +1,73 @@
+version: 2.0
+
+# BEGIN Locale
+defaultLocaleCode: en-US
+localeCodes:
+  - en-US
+# END Locale
+
+# A dictionary of arbitrary parameters that can be referenced in the workshop guide
+# using the params directive.
+params:
+  author: Marina Novikova, Tamara Astakhova, Engin Diri (Pulumi), Liz Fong-Jones (Honeycomb)
+  description: When Your Observability Data Talks Back - AI Agents That Reason Over Infrastructure
+  workshopDuration: 2 hours
+  workshopLevel: Intermediate
+  applicationRepo: https://github.com/dirien/ai-workshop
+
+# List of links to display in the workshop guide. Will be rendered on the left hand side navigation menu.
+additionalLinks:
+  - title: "Honeycomb Marketplace Listing"
+    link: "https://aws.amazon.com/marketplace/pp/prodview-x7qbbi2gqjz2o?sr=0-1&ref_=beagle&applicationId=AWSMPContessa"
+  - title: "Pulumi Marketplace Listing"
+    link: "https://aws.amazon.com/marketplace/pp/prodview-dwn22batkhsyg?sr=0-1&ref_=beagle&applicationId=AWSMPContessa"
+  
+  
+# START Infrastructure
+infrastructure:
+  cloudformationTemplates:
+    - templateLocation: static/infrastructure/vscode_server.yaml
+      parameters:
+        - templateParameter: RepoUrl
+          defaultValue: https://github.com/dirien/ai-workshop
+        - templateParameter: HomeFolder
+          defaultValue: /workshop/ai-workshop
+      label: VS Code Server
+      participantVisibleStackOutputs:
+        - URL
+        - Password    
+
+# END Infrastructure
+
+# START Accounts
+awsAccountConfig:
+  accountSources:
+    - workshop_studio
+  serviceLinkedRoles:
+    - appsync.amazonaws.com
+  participantRole:
+    iamPolicies: 
+      - static/iam_policy.json
+    managedPolicies:
+      - "arn:aws:iam::aws:policy/IAMReadOnlyAccess"
+      - "arn:aws:iam::aws:policy/AdministratorAccess"
+    trustedPrincipals:
+      service:
+        - ec2.amazonaws.com
+        - codebuild.amazonaws.com
+        - lambda.amazonaws.com
+  regionConfiguration:
+    minAccessibleRegions: 1
+    maxAccessibleRegions: 3
+    accessibleRegions:
+      recommended:
+        - us-west-2
+        - us-east-1
+    deployableRegions:
+      recommended:
+        - us-west-2
+        - us-east-1
+
+        
+      
+# END Accounts
