@@ -4,7 +4,7 @@ A shared technical reference for the Honeycomb + AWS workshop currently in build
 
 ## Overview
 
-The workshop teaches SREs how to investigate production issues across AWS infrastructure and Honeycomb observability data, using both manual exploration and AI-augmented agents. Attendees deploy a real microservices application on EKS, instrument it for Honeycomb, and progressively layer in AI-driven investigation tools (AWS DevOps Agent, Kiro) before racing them against a live incident.
+The workshop teaches SREs how to investigate production issues across AWS infrastructure and Honeycomb observability data, using both manual exploration and AI-augmented agents. Attendees deploy a real microservices application on EKS, instrument it for Honeycomb, layer in AI-driven investigation (AWS DevOps Agent + Honeycomb MCP), then build and instrument their own AI agent with OpenTelemetry and explore it live in Honeycomb's Agent Timeline.
 
 ## Workshop arc
 
@@ -13,9 +13,9 @@ The workshop teaches SREs how to investigate production issues across AWS infras
 | 1 | Deploy otel-demo + configure collector for Honeycomb | Working microservices app sending traces to Honeycomb | ✅ Validated |
 | 2 | Investigate in Honeycomb with organic data | BubbleUp / trace / Canvas walkthrough on real latency story | ✅ Validated |
 | 3 | Provision AWS DevOps Agent + connect Honeycomb MCP | AI-augmented investigation across AWS infra + Honeycomb traces | ✅ Validated |
-| 4 | Enable Kiro with Honeycomb MCP | IDE-native AI investigation surface | ⏳ Pending |
-| 5 | Toggle a flagd issue and race the DevOps Agent | Workshop peak: humans vs. agent on a live incident | ⏳ Design pending |
-| 6 | (Bonus) Agent Timeline tour | Enterprise feature teaser | ⏳ Pending demo env |
+| 4 | Build + instrument a Strands agent, explore it in Agent Timeline | Fully-populated Agent Timeline from ~60 lines of attendee-readable code | ✅ Validated 2026-07-16 |
+
+> Workshop is a 4-module arc as of 2026-07-16. A humans-vs-DevOps-Agent race module (flagd chaos toggle) is **parked** as a potential bonus, pending timing with a live audience — design notes preserved in the open items and Appendix A.
 
 ## Current validation context
 
@@ -159,11 +159,11 @@ Look for absence of `401`, `permission denied`, or `connection refused`. New dat
 
 ### Observed gotcha — CloudShell paste mangling
 
-Multi-line YAML pastes into CloudShell can mangle whitespace and quotes. During validation, the values file had to be uploaded from local. Recommended attendee distribution:
+Multi-line pastes into CloudShell can mangle whitespace and quotes — hit repeatedly during Module 1 and Module 4 validation; files had to be uploaded from local. Recommended attendee distribution (reordered 2026-07-16):
 
-1. **S3 + `aws s3 cp`** (recommended — Workshop Studio assets bucket).
-2. Heredoc with quoted `'EOF'` (`cat > ~/honeycomb-values.yaml <<'EOF' ... EOF`).
-3. Git clone of a workshop assets repo.
+1. **Git clone of a workshop assets repo** (recommended — one clone delivers every module's files, including the Module 4 agent script; no per-file copy steps).
+2. S3 + `aws s3 cp` (Workshop Studio assets bucket — confirm whether it obviates the repo).
+3. Heredoc with quoted `'EOF'` (last resort; still paste-dependent).
 
 ### Cleanup
 
@@ -253,7 +253,7 @@ The naked investigation surfaces four distinct gaps, each closeable by a differe
 | No application logs in CloudWatch | EKS logging enable + CloudWatch agent |
 | **No distributed traces** | **Honeycomb MCP** |
 
-For the workshop, **leave the kubectl, Container Insights, and CloudWatch log gaps in place**. Closing *only* the trace gap with MCP gives the cleanest before/after narrative for Module 5.
+For the workshop, **leave the kubectl, Container Insights, and CloudWatch log gaps in place**. Closing *only* the trace gap with MCP gives the cleanest before/after narrative — and keeps the parked humans-vs-agent bonus module viable if timing allows.
 
 ### Register Honeycomb MCP
 
@@ -303,35 +303,132 @@ DevOps Agent setup is Terraform-supported and will be wrapped into the Workshop 
 
 ---
 
-## Module 4 — Kiro with Honeycomb MCP
+## Module 4 — Build + instrument a Strands agent → Agent Timeline
 
-**Status: pending validation.**
+**Status: ✅ validated end-to-end 2026-07-16 (dev account, us-west-2).** Replaces the earlier Kiro and Claude Code designs (decision history and archaeology: `module-4-strands-agent-timeline.md`, `module-4-cc-bedrock-validation.md`).
 
-Open design questions:
+### Purpose
 
-- Installable inside CloudShell, or does it require a local IDE? If local, the workshop shifts off CloudShell mid-flow — which has implications for the asset distribution mechanism and overall pacing.
-- Does Kiro use the same Honeycomb API key as Module 3, or does each attendee generate a second?
-- Time-to-first-useful state after install.
+Attendees run a minimal AWS Strands agent in CloudShell, instrumented with OTel GenAI semantic conventions, exporting OTLP **directly to Honeycomb — no collector, no transform**. Payoff: a fully-populated Agent Timeline (conversation grouping, chat + tool-call spans, complete role-labeled Messages panel) from ~60 lines of code attendees can read top to bottom.
 
----
+### Why this design
 
-## Module 5 — Race: humans vs. DevOps Agent
+- Strands emits GenAI semconv natively (`invoke_agent` / `chat` / `execute_tool` spans, token + model attributes). The three attributes Agent Timeline requires — `gen_ai.conversation.id`, `gen_ai.agent.name`, `gen_ai.operation.name` — are visible in the agent code itself. That's the teaching moment: instrumentation as three readable lines, not a magic sidecar.
+- Honeycomb is OTLP-native, so export is just env vars.
+- Bedrock Haiku 4.5 keeps per-attendee cost trivial. Validated inference profile: `us.anthropic.claude-haiku-4-5-20251001-v1:0`. (5-series models are account-gated — do not build on them.)
+- Contrast with Module 3 completes the arc: *use* an AWS agent, then *instrument your own*.
 
-**Status: design pending.**
+### Setup (CloudShell)
 
-Design considerations from the Module 3 validation:
+CloudShell's default `python3` meets the ≥3.10 requirement (3.13 observed). The `[otel]` extra is required — the base package omits the OTLP exporter and the telemetry bootstrap fails with `ModuleNotFoundError: opentelemetry.exporter...`.
 
-- **The MCP-augmented agent is sharp.** "First to root cause" framing risks defeating attendees. Suggested reframe: *different paths to the same conclusion* — agent via DevOps console + Honeycomb MCP, humans via Honeycomb UI (BubbleUp, traces, Canvas). Compare *approach*, not just speed.
-- **Layer `llmRateLimitError` as the chaos flag.** Tied to the `product-reviews` service that the augmented agent already identifies as slow — clean narrative continuity. Agent should pivot from "LLM is slow" to "LLM is slow AND failing"; humans find the error pattern via BubbleUp on `error=true`.
-- **Scope investigation windows tightly** (e.g., last 30 min). Both validation runs treated cluster deploy time as incident start — the agent works better with a narrow window.
+```bash
+python3 -m venv ~/strands-venv
+source ~/strands-venv/bin/activate
+pip install 'strands-agents[otel]'
+```
 
----
+### Agent script
 
-## Module 6 (BONUS) — Agent Timeline
+Save as `~/agent.py` — ships in the workshop assets repo, not pasted. Two zero-dependency `@tool` functions produce clean `execute_tool` spans with visible arguments and results; their docstrings become the tool descriptions the model sees. The `trace_attributes` block carries the two identity attributes the Timeline groups on; Strands emits `gen_ai.operation.name` per span automatically.
 
-**Status: pending.**
+```python
+import uuid
+from datetime import datetime, timezone
 
-Agent Timeline is an enterprise-only Honeycomb feature. Requires either an enterprise demo environment or pre-recorded screencast for the workshop walkthrough.
+from strands import Agent, tool
+from strands.telemetry import StrandsTelemetry
+
+StrandsTelemetry().setup_otlp_exporter()
+
+
+@tool
+def current_time() -> str:
+    """Returns the current UTC time in ISO 8601 format."""
+    return datetime.now(timezone.utc).isoformat()
+
+
+@tool
+def word_count(text: str) -> int:
+    """Counts the number of words in the provided text."""
+    return len(text.split())
+
+
+session_id = str(uuid.uuid4())
+
+agent = Agent(
+    model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    tools=[current_time, word_count],
+    system_prompt="You are a concise workshop assistant. Use your tools when asked about the time or word counts.",
+    trace_attributes={
+        "gen_ai.conversation.id": session_id,
+        "gen_ai.agent.name": "workshop-agent",
+    },
+)
+
+print(f"conversation id: {session_id}")
+while True:
+    try:
+        user_input = input("\nyou> ")
+    except EOFError:
+        break
+    if user_input.strip().lower() in ("exit", "quit"):
+        break
+    agent(user_input)
+```
+
+### Configure and run
+
+Set the Honeycomb ingest key first, on its own (same key/pattern as Module 1's `honeycomb-credentials`):
+
+```bash
+export HONEYCOMB_API_KEY=<INGEST_KEY>
+```
+
+Then the OTel env vars. **`OTEL_SEMCONV_STABILITY_OPT_IN` is load-bearing**: without the `gen_ai_span_attributes_only` token, Strands puts message content in a span event, which the Agent Timeline Messages panel does not render (known limitation) — the timeline populates but conversations appear empty. CloudShell already provides AWS credentials and `AWS_REGION` for Bedrock.
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io
+export OTEL_EXPORTER_OTLP_HEADERS=x-honeycomb-team=$HONEYCOMB_API_KEY
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+export OTEL_RESOURCE_ATTRIBUTES=service.name=strands-workshop-agent
+export OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental,gen_ai_span_attributes_only
+```
+
+Then activate and run:
+
+```bash
+source ~/strands-venv/bin/activate
+python ~/agent.py
+```
+
+### Suggested attendee prompts
+
+1. *"What time is it right now?"* — forces a `current_time` tool call.
+2. *"How many words are in this sentence: observability makes on-call humane again"* — forces `word_count` with arguments.
+3. *"Summarize what tools you have."* — pure chat turn, no tool.
+
+### Explore Agent Timeline (formerly Module 6 — now the payoff of this module)
+
+Open **Agent Timeline** from the main navigation and find the conversation (browse recent conversations, or search by the printed conversation id). Attendee flow:
+
+1. **Conversations view**: the session appears in the list with agent count, tool calls, tokens, and latency — grouped across every turn by the session UUID the script set as `gen_ai.conversation.id`.
+2. **Timeline view**: `workshop-agent` lane with one `invoke_agent` span per turn; nested `chat` spans (model name + token counts) and `execute_tool current_time` / `execute_tool word_count` spans.
+3. **Gen AI tab on a chat span**: model, parameters, TTFT, token usage — and the **Messages section rendering both user prompts and assistant responses, role-labeled**. Connect it back to the code: this is `gen_ai.input/output.messages` as span attributes.
+4. **Gen AI tab on a tool span**: tool name plus arguments and result JSON — connect back to the `@tool` functions.
+5. Optionally, drop into the **Traces view** below the timeline to see the same data as a raw span waterfall — reinforces that Agent Timeline is a lens over ordinary OTel traces, not a separate pipeline.
+
+Also verify: a new `strands-workshop-agent` dataset exists in the environment (`service.name` routing, same as Module 1).
+
+### Observed gotchas — must be in attendee guide
+
+1. **`pip install strands-agents` alone breaks at runtime** — the `[otel]` extra is mandatory (`ModuleNotFoundError` on the OTLP exporter import).
+2. **The `gen_ai_span_attributes_only` token** in `OTEL_SEMCONV_STABILITY_OPT_IN` is the difference between a populated Messages panel and an empty one.
+3. **Ingest key, not management key** — same failure mode as Module 3's key confusion; the OTLP header silently authenticates against ingest only.
+
+### Workshop Studio translation
+
+Nothing new to provision — Bedrock model access/IAM in the vended account is the same dependency Module 3 already carries. The script ships in the assets repo; attendee-side work reduces to venv + pip install + env vars. Pin the `strands-agents` version in the assets repo requirements before the event.
 
 ---
 
@@ -340,10 +437,9 @@ Agent Timeline is an enterprise-only Honeycomb feature. Requires either an enter
 - [ ] **Region lock**: `us-east-1` (original plan) vs. `us-west-2` (current dev).
 - [ ] **Workshop Studio CFN**: translate eksctl-equivalent + DevOps Agent Terraform + Honeycomb pre-staging into the blueprint.
 - [ ] **SCPs / IAM boundaries**: confirm the constraints attendee accounts will inherit; emulate them in dev validation account to catch surprises.
-- [ ] **Asset distribution**: lock S3 + `aws s3 cp` pattern (vs git / heredoc) and stand up the assets bucket.
-- [ ] **Module 4 — Kiro path**: CloudShell vs local IDE decision; this drives the rest of Module 4's design.
-- [ ] **Module 5 — race mechanics**: framing (paths-to-conclusion vs timed), chaos flag, time-window scoping.
-- [ ] **Module 6 — Agent Timeline demo env**: enterprise tenant or screencast?
+- [ ] **Asset distribution**: GitHub repo cloned into CloudShell is now the leading candidate (2026-07-16 — CloudShell paste-mangling makes S3/heredoc worse for multi-line files); confirm against Workshop Studio's assets bucket, stand up the repo, pin `strands-agents` version in it.
+- [x] **Module 4**: ~~Kiro path~~ → Strands agent + Agent Timeline (absorbs former Module 6), validated end-to-end 2026-07-16.
+- [ ] **Bonus module (PARKED — evaluate after live-audience timing)**: humans-vs-DevOps-Agent race. Preserved design notes from the June validation: reframe as *different paths to the same conclusion* rather than a timed race (the MCP-augmented agent is sharp enough to demoralize); chaos flag `llmRateLimitError` (narrative continuity with the LLM endpoint the agent already flags — pivots "LLM is slow" to "slow AND failing", humans find it via BubbleUp on `error=true`); scope investigation windows tightly (~last 30 min — both validation runs treated cluster-deploy time as incident start).
 - [ ] **Auth UX gotcha**: surface to both AWS DevOps Agent docs team and Honeycomb docs team — the split-field vs concatenated-string mismatch is a documented trap.
 
 ---
@@ -389,10 +485,19 @@ Agent Timeline is an enterprise-only Honeycomb feature. Requires either an enter
 - [AWS CloudShell](https://console.aws.amazon.com/cloudshell)
 - [AWS Workshop Studio (catalog)](https://catalog.workshops.aws/)
 
+### Strands / Agent Timeline (Module 4)
+
+- [AWS Strands Agents SDK](https://strandsagents.com/)
+- [Honeycomb — Instrumenting AI Agents](https://docs.honeycomb.io/send-data/use-cases/agents/)
+- [Honeycomb — Agent Timeline](https://docs.honeycomb.io/investigate/observe/agent-timeline)
+- [storechat reference implementation (Honeycomb DevRel)](https://github.com/honeycombio/devrel-opentelemetry-demo/tree/main/src/storechat)
+
 ### Validation artifacts (in this folder)
 
 - `module-5-baseline-naked-investigation.md` — DevOps Agent investigation **before** Honeycomb MCP
 - `module-5-augmented-mcp-investigation.md` — DevOps Agent investigation **with** Honeycomb MCP
+- `module-4-strands-agent-timeline.md` — Module 4 validation runbook (Strands, validated 2026-07-16)
+- `module-4-cc-bedrock-validation.md` — superseded Claude Code path; retained as evidence for feature asks (CC response-text-on-spans; Timeline non-attribute rendering)
 
 ---
 
@@ -410,8 +515,8 @@ Flags shipped by the otel-demo, available via the Flagd configurator UI at `http
 | `failedReadinessProbe` | Cart readiness probe failure | K8s health investigation |
 | `imageSlowLoad` | Slow image loading (5s / 10s) | Frontend latency story |
 | `kafkaQueueProblems` | Kafka queue overload + consumer delay | Backpressure / lag story |
-| **`llmInaccurateResponse`** | Inaccurate LLM summary for product ID L9ECAV7KIM | Module 3/4 quality investigation |
-| **`llmRateLimitError`** | Intermittent LLM rate-limit errors | **Module 5 leading candidate** |
+| **`llmInaccurateResponse`** | Inaccurate LLM summary for product ID L9ECAV7KIM | Module 3 quality investigation |
+| **`llmRateLimitError`** | Intermittent LLM rate-limit errors | **Parked bonus module — leading candidate** |
 | `loadGeneratorFloodHomepage` | Flood frontend with requests | Throughput / scaling story |
 | `paymentFailure` | Payment service charge failures (10% → 100%) | Error rate investigation |
 | `paymentUnreachable` | Payment service unavailable | Hard failure story |
