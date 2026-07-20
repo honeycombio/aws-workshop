@@ -1,0 +1,18 @@
+opentelemetry-collector:
+  extraEnvsFrom:
+    - secretRef:
+        name: honeycomb-credentials
+  config:
+    exporters:
+      otlp/honeycomb:
+        endpoint: "api.honeycomb.io:443"
+        headers:
+          "x-honeycomb-team": "${env:HONEYCOMB_API_KEY}"
+    service:
+      pipelines:
+        traces:
+          exporters: [otlp/jaeger, debug, spanmetrics, otlp/honeycomb]
+        metrics:
+          exporters: [otlphttp/prometheus, debug, otlp/honeycomb]
+        logs:
+          exporters: [opensearch, debug, otlp/honeycomb]
