@@ -1,7 +1,7 @@
-# Module 5 — MCP-Augmented Investigation
+# Module 3 — MCP-Augmented Investigation
 
 **Captured:** 2026-06-24
-**Setup:** Identical to the baseline (see `module-5-baseline-naked-investigation.md`) — same dev account, same cluster, same prompt, same time window. **Only change:** Honeycomb MCP server registered in the Agent Space.
+**Setup:** Identical to the baseline (see `module-3-baseline-investigation.md`) — same dev account, same cluster, same prompt, same time window. **Only change:** Honeycomb MCP server registered in the Agent Space.
 
 **Prompt:** Same as baseline — "Investigate latency on frontend-proxy."
 

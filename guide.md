@@ -402,7 +402,7 @@ Compare this against the baseline, because the difference is the whole module:
 - The *real* tail latency is `/api/product-ask-ai-assistant` (P50 45ms / P95 178ms / P99 214ms) — the same sequential-LLM-call endpoint **you** found with BubbleUp in Module 2.
 - Per-endpoint percentile breakdowns, zero "cannot determine" gap blocks.
 
-Full verbatim transcripts of both runs ship in this repo: [baseline](artifacts/module-5-baseline-naked-investigation.md) and [with MCP](artifacts/module-5-augmented-mcp-investigation.md).
+Full verbatim transcripts of both runs ship in this repo: [baseline](artifacts/module-3-baseline-investigation.md) and [with MCP](artifacts/module-3-mcp-augmented-investigation.md).
 
 **Module 3 takeaway:** the agent didn't get smarter between the two runs — it got *access to traces*. The same MCP server that powers Honeycomb's own AI features made a third-party agent capable of application-level root cause. Observability is the substrate AI investigation runs on.
 
@@ -584,8 +584,8 @@ eksctl delete cluster --name otel-demo --region us-west-2
 | `guide.md` | This guide |
 | `artifacts/honeycomb-values.yaml` | Collector override adding the Honeycomb exporter (Module 1) |
 | `artifacts/agent.py` | The Strands workshop agent (Module 4) |
-| `artifacts/module-5-baseline-naked-investigation.md` | Verbatim DevOps Agent investigation, before MCP (Module 3) |
-| `artifacts/module-5-augmented-mcp-investigation.md` | Verbatim DevOps Agent investigation, with Honeycomb MCP (Module 3) |
+| `artifacts/module-3-baseline-investigation.md` | Verbatim DevOps Agent investigation, before MCP (Module 3) |
+| `artifacts/module-3-mcp-augmented-investigation.md` | Verbatim DevOps Agent investigation, with Honeycomb MCP (Module 3) |
 | `img/` | Screenshots referenced throughout |
 
 ### Documentation links
