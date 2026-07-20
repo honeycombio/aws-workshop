@@ -1,4 +1,4 @@
-# Module 5 — Baseline "Naked" Investigation
+# Module 3 — Baseline Investigation (before Honeycomb MCP)
 
 **Captured:** 2026-06-24
 **Setup:** AWS DevOps Agent in `us-west-2`, Agent Space connected to dev account `272469967381`. Cluster `otel-demo` deployed 2026-06-22, m5.xlarge single node. otel-demo Helm chart installed. Honeycomb MCP **not yet connected**. No additional gap-closing changes (no Container Insights, no kubectl access entry for the agent's IAM role).

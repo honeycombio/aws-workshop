@@ -13,8 +13,8 @@ A hands-on workshop where you deploy the OpenTelemetry Demo on Amazon EKS, wire 
 | [guide.md](guide.md) | The full workshop guide — four modules, start to finish |
 | `artifacts/honeycomb-values.yaml` | Collector override adding the Honeycomb exporter (Module 1) |
 | `artifacts/agent.py` | The Strands workshop agent (Module 4) |
-| `artifacts/module-5-baseline-naked-investigation.md` | Verbatim DevOps Agent investigation, before MCP (Module 3) |
-| `artifacts/module-5-augmented-mcp-investigation.md` | Verbatim DevOps Agent investigation, with Honeycomb MCP (Module 3) |
+| `artifacts/module-3-baseline-investigation.md` | Verbatim DevOps Agent investigation, before MCP (Module 3) |
+| `artifacts/module-3-mcp-augmented-investigation.md` | Verbatim DevOps Agent investigation, with Honeycomb MCP (Module 3) |
 | `img/` | Screenshots referenced by the guide |
 
 ## Prerequisites
