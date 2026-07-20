@@ -11,7 +11,7 @@ Welcome! Over the next four modules you will deploy a real microservices applica
 | 3 | AWS DevOps Agent + Honeycomb MCP | An AI investigation that goes from "I can't see inside your app" to application-level root cause — and a clear understanding of why |
 | 4 | Build + instrument a Strands agent | A fully-populated Agent Timeline from ~60 lines of code you can read top to bottom |
 
-The through-line: **observability is what turns both humans and AI agents into effective investigators.** Every module makes that point a different way.
+TL,DR: **observability is what turns both humans and AI agents into effective investigators.** Every module makes that point a different way.
 
 ### Prerequisites
 
@@ -24,7 +24,7 @@ Multi-line pastes into CloudShell can mangle whitespace and quotes, so all files
 
 ```bash
 cd ~
-git clone <repo-url> aws-workshop
+git clone https://github.com/honeycombio/aws-workshop.git
 ```
 
 Everything the guide references lives under `~/aws-workshop/artifacts/`.
@@ -537,7 +537,17 @@ Click into a `chat` span from a turn that used a tool:
 
 Finally, check **Datasets**: a new `strands-workshop-agent` dataset exists, routed by `service.name` exactly like the demo services in Module 1. Your hand-built agent and a 20-service production stack land in Honeycomb the same way.
 
-**Module 4 takeaway:** agent observability isn't a product you buy or a sidecar you deploy — it's ~3 lines of semconv-aware instrumentation and an OTLP endpoint. You read every line of the system you just observed.
+**Module 4 takeaway:** agents are the hardest systems you'll ever debug — nondeterministic, multi-turn, and opaque in exactly the places that matter. Agent Timeline gives you the view that actually answers agent questions: what the model was told, what it decided, which tools it called with what arguments, and what each turn cost in tokens and latency — grouped by conversation, not scattered across traces. And the price of admission was three lines of code: because Strands emits the OTel GenAI semantic conventions natively, all you supplied was a conversation id, an agent name, and an OTLP endpoint. The standard did the rest.
+
+---
+
+## Conclusion
+
+Step back and look at the arc you just walked. You deployed a real distributed system and connected it to Honeycomb with one exporter block — the application never changed. You investigated it yourself and found the LLM-backed endpoint driving tail latency with a few clicks of BubbleUp. You then watched a capable AI agent attempt the same investigation and stall at the infrastructure boundary — until Honeycomb MCP gave it your traces, and it reached the same root cause you did, plus a distinction (streaming connections vs. real request latency) that infrastructure metrics could never make. Finally, you built an agent of your own and watched sixty lines of code produce a complete, explorable record of its reasoning.
+
+The common thread: **investigation quality is determined by telemetry access, not by who's investigating.** The human in Module 2 and the agent in Module 3 succeeded for the same reason — rich, high-cardinality trace data was reachable at the moment questions were asked. And Module 4 closed the loop: the AI systems you build are themselves production systems that deserve the same observability you gave the telescope shop.
+
+Where to take this next: instrument a service you own (Module 1's pattern works on any OTLP-capable stack), connect Honeycomb MCP to the agents your team already uses, and if you're building agents, ship the three GenAI attributes from day one. Everything you used today runs on the Honeycomb free tier.
 
 ---
 
