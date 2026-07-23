@@ -78,7 +78,7 @@ kubectl get nodes
 ```bash
 helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
 helm repo update
-helm install my-otel-demo open-telemetry/opentelemetry-demo
+helm install my-otel-demo open-telemetry/opentelemetry-demo --version 0.40.9
 ```
 
 Watch the pods come up, and press Ctrl-C once everything is `Running`:
@@ -118,14 +118,17 @@ Chart internals drift between versions, so discover the collector's actual names
 kubectl get configmap | grep -i otel
 kubectl get deploy,ds,sts -A | grep -i otel
 ```
+```bash
+export CONFIGMAP_NAME=
+```
 
 Then look at the pipelines the collector is currently running, substituting the configmap name you just found:
 
 ```bash
-kubectl get configmap <configmap-name> -o yaml | grep -A 60 "pipelines:"
+kubectl get configmap $CONFIGMAP_NAME -o yaml | grep -A 60 "pipelines:"
 ```
 
-At the time this guide was validated, the configmap was `otel-collector-agent`, the workload was `daemonset.apps/otel-collector-agent`, and the pipelines exported traces to `otlp/jaeger`, metrics to `otlphttp/prometheus`, and logs to `opensearch` (each alongside `debug` and `spanmetrics`). If your names differ, substitute yours in the commands below.
+> [!NOTE] At the time this guide was validated, the configmap was `otel-collector-agent`, the workload was `daemonset.apps/otel-collector-agent`, and the pipelines exported traces to `otlp/jaeger`, metrics to `otlphttp/prometheus`, and logs to `opensearch` (each alongside `debug` and `spanmetrics`). If your names differ, substitute yours in the commands below.
 
 **Why this matters:** the collector is a pipeline router — receivers in, processors in the middle, exporters out. Adding a backend is adding one exporter and referencing it in the pipelines. That's the entire integration.
 
@@ -135,6 +138,8 @@ In Honeycomb: **Environment Settings → API Keys → Create Ingest Key**. Copy 
 
 ```bash
 export HONEYCOMB_API_KEY=<your-ingest-key>
+```
+```bash
 kubectl create secret generic honeycomb-credentials \
   --from-literal=HONEYCOMB_API_KEY="$HONEYCOMB_API_KEY"
 ```
@@ -196,7 +201,7 @@ The demo has a latency story hiding in plain sight — no chaos flags, no inject
 
 ### 2.1 Query the request distribution
 
-In Honeycomb, go to **Query** and select the `frontend-proxy` dataset — it's the front door all requests pass through. Build this query:
+In Honeycomb, go to **Query** and select the `frontend-proxy` dataset (or `All datasets`) — it's the front door all requests pass through. Build this query:
 
 - **VISUALIZE**: `HEATMAP(duration_ms)`
 - **WHERE**: `trace.span_id exists`
@@ -414,12 +419,12 @@ You've *used* an AWS agent; now build one. You'll run a minimal AWS Strands agen
 
 ### 4.1 Set up the environment
 
-CloudShell's default `python3` meets the requirement (3.10+). Create a venv and install Strands **with the `[otel]` extra**:
+Return to CloudShell and create a venv and install Strands library with `[otel]`:
 
 ```bash
 python3 -m venv ~/strands-venv
 source ~/strands-venv/bin/activate
-pip install 'strands-agents[otel]'
+pip install 'strands-agents[otel]==1.42.0'
 ```
 
 The extra is not optional: the base package omits the OTLP exporter, and the telemetry bootstrap fails at runtime with `ModuleNotFoundError: opentelemetry.exporter...` — a confusing error to hit ten steps from where you caused it.
@@ -477,7 +482,7 @@ What to notice:
 
 - **The instrumentation is three readable lines.** `StrandsTelemetry().setup_otlp_exporter()` plus the two `trace_attributes` — `gen_ai.conversation.id` (groups every turn of a session) and `gen_ai.agent.name` (labels the timeline lane). Strands emits the rest of the GenAI semantic conventions — `invoke_agent`/`chat`/`execute_tool` spans, model names, token counts — natively. No magic sidecar; the telemetry story is *in the code you can see*.
 - **The `@tool` docstrings are load-bearing.** They become the tool descriptions the model reasons over, and the tool spans in Honeycomb will carry each call's arguments and results.
-- **The model is Bedrock Haiku 4.5** via the `us.anthropic.claude-haiku-4-5-20251001-v1:0` inference profile — fast and cheap enough that everyone can hammer it.
+- **The model is Bedrock Haiku 4.5** via the `us.anthropic.claude-haiku-4-5-20251001-v1:0` inference profile.
 
 ### 4.3 Configure export to Honeycomb
 
