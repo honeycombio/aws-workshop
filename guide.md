@@ -67,6 +67,12 @@ eksctl create cluster \
   --managed
 ```
 
+The log streams for ~15 minutes. Early on, eksctl announces its plan — two sequential CloudFormation stacks, one for the cluster control plane and one for the managed nodegroup:
+
+![CloudShell streaming eksctl create cluster output, announcing the two CloudFormation stacks and waiting on the cluster stack](img/aws-cloudshell.png)
+
+Let it run to completion, even when the output seems to pause — interrupting between the two stacks leaves a cluster that shows "Active" in the console but has no worker nodes and no kubeconfig. You're done when the prompt returns after `EKS cluster "otel-demo" in "us-west-2" region is ready`.
+
 `eksctl` writes your kubeconfig automatically. Verify you can reach the cluster:
 
 ```bash
@@ -86,6 +92,10 @@ Watch the pods come up, and press Ctrl-C once everything is `Running`:
 ```bash
 kubectl get pods -w
 ```
+
+Startup isn't perfectly tidy — pods cycle through `PodInitializing`, and a transient `Error` with a quick restart is normal while dependencies come up on the single node:
+
+![kubectl get pods -w output with pods transitioning to Running, including a transient product-catalog error and restart, followed by the frontend-proxy LoadBalancer patch from the next step](img/cloudshell-otel-demo-deployed.png)
 
 The bundled load generator starts producing realistic traffic immediately — you don't need to do anything to generate trace volume.
 
@@ -128,13 +138,17 @@ Then look at the pipelines the collector is currently running, substituting the 
 kubectl get configmap $CONFIGMAP_NAME -o yaml | grep -A 60 "pipelines:"
 ```
 
-> [!NOTE] At the time this guide was validated, the configmap was `otel-collector-agent`, the workload was `daemonset.apps/otel-collector-agent`, and the pipelines exported traces to `otlp/jaeger`, metrics to `otlphttp/prometheus`, and logs to `opensearch` (each alongside `debug` and `spanmetrics`). If your names differ, substitute yours in the commands below.
+> **_NOTE:_** At the time this guide was validated, the configmap was `otel-collector-agent`, the workload was `daemonset.apps/otel-collector-agent`, and the pipelines exported traces to `otlp/jaeger`, metrics to `otlphttp/prometheus`, and logs to `opensearch` (each alongside `debug` and `spanmetrics`). If your names differ, substitute yours in the commands below.
 
 **Why this matters:** the collector is a pipeline router — receivers in, processors in the middle, exporters out. Adding a backend is adding one exporter and referencing it in the pipelines. That's the entire integration.
 
 ### 1.6 Create the Honeycomb ingest key and secret
 
-In Honeycomb: **Environment Settings → API Keys → Create Ingest Key**. Copy the key, then store it in the cluster as a secret:
+In Honeycomb: **Environment Settings → API Keys**, then on the **Ingest** tab click **Create Ingest API Key**:
+
+![The Honeycomb environment API Keys page on the Ingest tab, with the Create Ingest API Key button](img/hny-ingest-api.png)
+
+Copy the key, then store it in the cluster as a secret:
 
 ```bash
 export HONEYCOMB_API_KEY=<your-ingest-key>
@@ -260,7 +274,11 @@ In the AWS console, search for **DevOps Agent** and open **Agent Spaces → Crea
 
 ![The AWS DevOps Agent console showing the empty Agent Spaces list with the Create Agent Space button](img/aws-devops-agent1.png)
 
-In the wizard, let it **auto-create the service IAM role** (one click), and **enable the Web App** — that's the chat UI you'll use throughout this module. When creation finishes, open the agent UI via **Operator access** on the Agent Space page.
+In the wizard, give the Agent Space a name and let it **auto-create the service IAM role** — the form generates the role name for you:
+
+![The Create Agent Space form with a name entered and Auto-create a new DevOps Agent role selected](img/doa-agent-space-config.png)
+
+Also **enable the Web App** — that's the chat UI you'll use throughout this module. When creation finishes, open the agent UI via **Operator access** on the Agent Space page.
 
 Optionally, sanity-check what the role can see:
 
