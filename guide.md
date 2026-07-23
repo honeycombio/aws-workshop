@@ -44,6 +44,8 @@ CloudShell ships with `aws` and `kubectl`. Install `eksctl`:
 ```bash
 curl --silent --location "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
 sudo mv /tmp/eksctl /usr/local/bin
+```
+```bash
 eksctl version
 ```
 
@@ -442,7 +444,7 @@ Return to CloudShell and create a venv and install Strands library with `[otel]`
 ```bash
 python3 -m venv ~/strands-venv
 source ~/strands-venv/bin/activate
-pip install 'strands-agents[otel]==1.42.0'
+pip install 'strands-agents[otel]==1.48.0'
 ```
 
 The extra is not optional: the base package omits the OTLP exporter, and the telemetry bootstrap fails at runtime with `ModuleNotFoundError: opentelemetry.exporter...` — a confusing error to hit ten steps from where you caused it.
@@ -516,7 +518,7 @@ Then the OTel environment variables. This is the whole "pipeline" — compare it
 export OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io
 export OTEL_EXPORTER_OTLP_HEADERS=x-honeycomb-team=$HONEYCOMB_API_KEY
 export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-export OTEL_RESOURCE_ATTRIBUTES=service.name=strands-workshop-agent
+export OTEL_SERVICE_NAME=strands-workshop-agent
 export OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental,gen_ai_span_attributes_only
 ```
 
@@ -598,7 +600,8 @@ eksctl delete cluster --name otel-demo --region us-west-2
 | MCP registration: "Invalid input" on header field | Full header string pasted into the name field | Header field takes `Authorization` only (Module 3.5) |
 | MCP registered but agent gets auth errors | Key ID or secret used alone, or whitespace | Value is `Bearer KEY_ID:SECRET_KEY`, joined with `:` (Module 3.5) |
 | `ModuleNotFoundError: opentelemetry.exporter...` | Installed `strands-agents` without the extra | `pip install 'strands-agents[otel]'` (Module 4.1) |
-| Agent Timeline populated but conversations look empty | Message content in span events, not attributes | Include `gen_ai_span_attributes_only` in `OTEL_SEMCONV_STABILITY_OPT_IN` (Module 4.3) |
+| Agent Timeline populated but conversations look empty | Message content in span events, not attributes — `gen_ai_span_attributes_only` missing from the opt-in, or `strands-agents` older than the pinned version (the token doesn't exist in ≤1.42) | Install the pinned version (Module 4.1) and include `gen_ai_span_attributes_only` in `OTEL_SEMCONV_STABILITY_OPT_IN` (Module 4.3) |
+| A dataset named `strands-agents` appears instead of `strands-workshop-agent` | The agent process started without the Module 4.3 env vars — Strands reads `OTEL_SERVICE_NAME` only and defaults to `strands-agents`; recycled sessions and new tabs lose exports | Re-run the 4.3 exports in the shell you're launching from, then restart the agent |
 
 ### Repo contents
 
