@@ -167,6 +167,11 @@ Make sure this is an **ingest** key. Honeycomb also has management keys — you'
 The values override ships in the repo at `artifacts/honeycomb-values.yaml`:
 
 ```yaml
+components:
+  frontend-proxy:
+    service:
+      type: LoadBalancer
+
 opentelemetry-collector:
   extraEnvsFrom:
     - secretRef:
@@ -187,10 +192,11 @@ opentelemetry-collector:
           exporters: [opensearch, debug, otlp/honeycomb]
 ```
 
-Two details worth absorbing before you apply it:
+Three details worth absorbing before you apply it:
 
 1. **The `x-honeycomb-team` header is the entire auth contract.** Anything that can speak OTLP and set that header can send data to Honeycomb — a collector, an SDK, or (in Module 4) your own agent. EU accounts use `api.eu1.honeycomb.io:443`.
 2. **The exporter lists are replaced by Helm's merge, not appended.** That's why each pipeline restates the existing exporters alongside `otlp/honeycomb` — omit them and you'd silently disconnect Jaeger, Prometheus, and OpenSearch.
+3. **The `frontend-proxy` block protects your LoadBalancer.** The `kubectl patch` in 1.4 is out-of-band drift on a Helm-managed service — without this block, `helm upgrade` reverts the type to `ClusterIP` and Kubernetes deletes your ELB, killing the URL. Declaring the type in values makes every upgrade assert it instead.
 
 Apply it and watch the rollout, substituting your workload name if it differs:
 
@@ -597,6 +603,7 @@ eksctl delete cluster --name otel-demo --region us-west-2
 |---|---|---|
 | Collector logs show `401` | Wrong key type or typo'd secret | Use an **ingest** key in `honeycomb-credentials` (Module 1.6) |
 | Jaeger/Grafana went dark after `helm upgrade` | Pipeline exporter lists were replaced, not appended | Restate existing exporters alongside `otlp/honeycomb` (Module 1.7) |
+| Web store URL dead after `helm upgrade`; re-patching mints a new `EXTERNAL-IP` | Upgrade reverted `frontend-proxy` to `ClusterIP`, so Kubernetes deleted the ELB | Keep `components.frontend-proxy.service.type: LoadBalancer` in the values file (Module 1.7) |
 | MCP registration: "Invalid input" on header field | Full header string pasted into the name field | Header field takes `Authorization` only (Module 3.5) |
 | MCP registered but agent gets auth errors | Key ID or secret used alone, or whitespace | Value is `Bearer KEY_ID:SECRET_KEY`, joined with `:` (Module 3.5) |
 | `ModuleNotFoundError: opentelemetry.exporter...` | Installed `strands-agents` without the extra | `pip install 'strands-agents[otel]'` (Module 4.1) |
