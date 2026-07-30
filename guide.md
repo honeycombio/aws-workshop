@@ -13,6 +13,8 @@ Welcome! Over the next four modules you will deploy a real microservices applica
 
 TL,DR: **observability is what turns both humans and AI agents into effective investigators.** Every module makes that point a different way.
 
+> **A note on screenshots and results.** Parts of this workshop are non-deterministic by design: Canvas and the AWS DevOps Agent generate their output with AI, and the OpenTelemetry Demo produces randomized traffic and behavior. Your query results, traces, and agent investigations will differ from the screenshots — sometimes noticeably. That's expected. Treat the screenshots as reference points for the *kind* of thing you should see, not exact targets to match.
+
 ### Prerequisites
 
 - An AWS account with CloudShell access and permissions for EKS, IAM, Bedrock, and AWS DevOps Agent (`aidevops:*`, `iam:CreateRole`). All commands in this guide run in **AWS CloudShell** in **us-west-2**.
@@ -52,7 +54,9 @@ eksctl version
 Install `helm` if it isn't already present:
 
 ```bash
-curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+mkdir -p ~/bin && curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | HELM_INSTALL_DIR=$HOME/bin USE_SUDO=false bash
+```
+```bash
 helm version
 ```
 
@@ -211,7 +215,7 @@ kubectl rollout status daemonset/otel-collector-agent
 kubectl logs -l app.kubernetes.io/name=opentelemetry-collector -f --tail=50
 ```
 
-You're looking for the *absence* of `401`, `permission denied`, or `connection refused`. Then open Honeycomb → **Datasets**: within about 30 seconds you should see new datasets appear, one per service (`frontend`, `cart`, `checkout`, `frontend-proxy`, ...). Dataset routing follows `service.name` — remember that; it comes back in Module 4.
+You're looking for the *absence* of `401`, `permission denied`, or `connection refused`. Then open Honeycomb → **Datasets**: within about 30 seconds you should see new datasets appear, one per service (`frontend`, `cart`, `checkout`, ...). Dataset routing follows `service.name` — remember that; it comes back in Module 4.
 
 **Module 1 takeaway:** adding an observability backend to an OTel-instrumented system is one exporter block and one line per pipeline. The app never knew anything changed.
 
@@ -223,18 +227,18 @@ The demo has a latency story hiding in plain sight — no chaos flags, no inject
 
 ### 2.1 Query the request distribution
 
-In Honeycomb, go to **Query** and select the `frontend-proxy` dataset (or `All datasets`) — it's the front door all requests pass through. Build this query:
+In Honeycomb, go to **Query** and select the `frontend` dataset (or `All datasets`) — it's the storefront service every user request flows through.. Build this query:
 
 - **VISUALIZE**: `HEATMAP(duration_ms)`
-- **WHERE**: `trace.span_id exists`
+- **WHERE**: `trace.span_id exists` (optional)
 
 Run it over the last 30 minutes. A heatmap shows the full latency *distribution* over time, not a single averaged line — most traffic hugs the bottom, and distinct slow bands sit above it. Averages would have hidden exactly what you're about to investigate.
 
 ### 2.2 From distribution to a single trace
 
-Right-click any dense region of the heatmap and choose **View trace**:
+Click any dense region of the heatmap and choose **View trace**:
 
-![Heatmap query results with the right-click menu open, showing View trace](img/view-trace1.png)
+![Heatmap query results with the click menu open, showing View trace](img/view-trace1.png)
 
 You land in the trace waterfall — one request, every span, across every service it touched:
 
@@ -445,7 +449,7 @@ You've *used* an AWS agent; now build one. You'll run a minimal AWS Strands agen
 
 ### 4.1 Set up the environment
 
-Return to CloudShell and create a venv and install Strands library with `[otel]`:
+Return to CloudShell and create a python virtual environment and install Strands library with `[otel]`:
 
 ```bash
 python3 -m venv ~/strands-venv
@@ -453,11 +457,10 @@ source ~/strands-venv/bin/activate
 pip install 'strands-agents[otel]==1.48.0'
 ```
 
-The extra is not optional: the base package omits the OTLP exporter, and the telemetry bootstrap fails at runtime with `ModuleNotFoundError: opentelemetry.exporter...` — a confusing error to hit ten steps from where you caused it.
 
-### 4.2 Read the agent
+### 4.2 Read the agent code
 
-The script ships at `artifacts/agent.py` — don't paste it, read it. This is the entire agent:
+The code ships at `artifacts/agent.py`. This is the entire agent:
 
 ```python
 import uuid
@@ -528,7 +531,7 @@ export OTEL_SERVICE_NAME=strands-workshop-agent
 export OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental,gen_ai_span_attributes_only
 ```
 
-That last line is **load-bearing**: without the `gen_ai_span_attributes_only` token, Strands records message content as span *events*, which the Agent Timeline Messages panel doesn't render — your timeline would populate but every conversation would look empty. With it, prompts and responses land as span attributes and render fully.
+That last line is **required**: without the `gen_ai_span_attributes_only` token, Strands records message content as span *events*, which doesn't render in the Agent Timeline Messages panel — your timeline would populate but every conversation would look empty. With it, prompts and responses land as span attributes and render fully.
 
 CloudShell already provides AWS credentials and region for Bedrock — nothing else to configure.
 
