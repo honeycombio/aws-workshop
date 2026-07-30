@@ -17,8 +17,8 @@ TL,DR: **observability is what turns both humans and AI agents into effective in
 
 ### Prerequisites
 
-- An AWS account with CloudShell access and permissions for EKS, IAM, Bedrock, and AWS DevOps Agent (`aidevops:*`, `iam:CreateRole`). All commands in this guide run in **AWS CloudShell** in **us-west-2**.
 - A **free Honeycomb account** — sign up at [honeycomb.io/signup](https://www.honeycomb.io/signup) if you haven't. The free tier includes everything this workshop uses, including Honeycomb MCP.
+- An AWS account with CloudShell access and permissions for EKS, IAM, Bedrock, and AWS DevOps Agent  (provided if attending hosted event)
 
 ### Get the workshop assets
 
@@ -582,6 +582,8 @@ Step back and look at the arc you just walked. You deployed a real distributed s
 The common thread: **investigation quality is determined by telemetry access, not by who's investigating.** The human in Module 2 and the agent in Module 3 succeeded for the same reason — rich, high-cardinality trace data was reachable at the moment questions were asked. And Module 4 closed the loop: the AI systems you build are themselves production systems that deserve the same observability you gave the telescope shop.
 
 Where to take this next: instrument a service you own (Module 1's pattern works on any OTLP-capable stack), connect Honeycomb MCP to the agents your team already uses, and if you're building agents, ship the three GenAI attributes from day one. Everything you used today runs on the Honeycomb free tier.
+
+And before you tear anything down, break it on purpose! The demo's feature-flag UI — `http://<elb-dns>:8080/feature`, from the Module 1.4 table — lets you switch on specific failure scenarios: payment errors, cache pressure, CPU spikes, artificially slow responses. Flip a flag, watch the errors surface in Honeycomb, and rehearse today's workflow — yourself or through an agent — against a fresh incident of your choosing.
 
 ---
 
