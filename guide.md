@@ -205,7 +205,7 @@ Three details worth absorbing before you apply it:
 Apply it and watch the rollout, substituting your workload name if it differs:
 
 ```bash
-helm upgrade my-otel-demo open-telemetry/opentelemetry-demo --values ~/aws-workshop/artifacts/honeycomb-values.yaml
+helm upgrade my-otel-demo open-telemetry/opentelemetry-demo --version 0.40.9 --values ~/aws-workshop/artifacts/honeycomb-values.yaml
 kubectl rollout status daemonset/otel-collector-agent
 ```
 
