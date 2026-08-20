@@ -487,7 +487,7 @@ def word_count(text: str) -> int:
 session_id = str(uuid.uuid4())
 
 agent = Agent(
-    model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    model="amazon.nova-lite-v1:0",
     tools=[current_time, word_count],
     system_prompt="You are a concise workshop assistant. Use your tools when asked about the time or word counts.",
     trace_attributes={
